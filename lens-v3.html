@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<title>LENS v3 - 視力補正レイヤー</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+:root{
+  --bg:#f8f9ff;--panel:#fff;--panel2:#f0f2ff;
+  --primary:#3b5bdb;--primary2:#1e3a8a;--accent:#7c3aed;
+  --success:#059669;--danger:#dc2626;--warn:#d97706;
+  --text:#1e1b4b;--muted:#6b7280;--border:#e0e4f0;
+  --sh:0 4px 20px rgba(59,91,219,.11);--r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP','Inter',sans-serif;font-size:14px;min-height:100dvh;}
+
+/* ログイン */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100dvh;background:linear-gradient(150deg,#1e1b4b 0%,#3b5bdb 55%,#7c3aed 100%);padding:22px;}
+.login-card{background:#fff;border-radius:22px;padding:30px 22px;width:100%;max-width:360px;
+  box-shadow:0 12px 48px rgba(0,0,0,.35);}
+.login-logo{text-align:center;margin-bottom:24px;}
+.login-logo .li{font-size:50px;display:block;}
+.login-logo h1{font-size:24px;font-weight:800;color:var(--primary2);letter-spacing:.1em;margin-top:4px;}
+.login-logo p{font-size:11px;color:var(--muted);margin-top:3px;}
+.lf{margin-bottom:12px;}
+.lf label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;letter-spacing:.06em;}
+.lf input{width:100%;padding:12px 13px;border:1.5px solid var(--border);border-radius:10px;
+  font-size:15px;font-family:'Noto Sans JP',sans-serif;outline:none;background:#fafbff;transition:border .2s;}
+.lf input:focus{border-color:var(--primary);}
+.login-err{color:var(--danger);font-size:12px;min-height:18px;margin-bottom:8px;text-align:center;}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--primary),var(--primary2));
+  color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;letter-spacing:.04em;}
+.login-btn:active{opacity:.85;}
+.login-note{font-size:11px;color:var(--muted);text-align:center;margin-top:13px;line-height:1.6;}
+
+/* アプリ */
+#app{display:none;}
+#app.show{display:block;}
+
+/* ヘッダー */
+header{background:linear-gradient(135deg,var(--primary2),var(--primary));color:#fff;
+  padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:300;box-shadow:0 2px 12px rgba(30,58,138,.3);}
+.hd-logo{font-size:17px;font-weight:800;letter-spacing:.12em;color:#c7d2fe;}
+.hd-right{display:flex;align-items:center;gap:6px;}
+.hd-user{font-size:11px;color:#c7d2fe;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hd-btn{background:rgba(255,255,255,.18);border:none;color:#fff;
+  padding:5px 10px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-weight:600;}
+.hd-btn:active{background:rgba(255,255,255,.32);}
+
+/* ===== レイヤー（UIを壊さない transform:scale方式）===== */
+#content-wrap{transition:transform .25s,filter .25s;}
+
+body.lm-rogan #content-wrap{
+  transform-origin:top left;
+  transform:scale(var(--lz,1.5));
+  width:calc(100% / var(--lz,1.5));
+}
+body.lm-ranshi #content-wrap{
+  filter:contrast(1.5) brightness(1.06);
+}
+body.lm-enshi #content-wrap{
+  transform-origin:top left;
+  transform:scale(var(--lz,1.3));
+  width:calc(100% / var(--lz,1.3));
+  filter:brightness(1.08) contrast(1.15);
+}
+body.lm-emergency #content-wrap{
+  transform-origin:top left;
+  transform:scale(var(--lz,2.0));
+  width:calc(100% / var(--lz,2.0));
+}
+body.lens-hc #content-wrap{filter:contrast(2) brightness(.92);}
+body.lm-ranshi.lens-hc #content-wrap{filter:contrast(2.2) brightness(1);}
+
+/* メイン */
+.main{padding:14px 14px 100px;}
+.sec-ttl{font-size:12px;font-weight:700;color:var(--primary2);margin:16px 0 9px;
+  letter-spacing:.06em;display:flex;align-items:center;gap:5px;}
+.sec-ttl::before{content:'';display:inline-block;width:3px;height:13px;background:var(--primary);border-radius:2px;}
+
+/* モードグリッド */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;}
+.mode-card{background:var(--panel);border-radius:12px;padding:13px 10px;box-shadow:var(--sh);
+  cursor:pointer;text-align:center;transition:all .18s;border:2px solid transparent;}
+.mode-card:active{transform:scale(.96);}
+.mode-card.sel{border-color:var(--primary);background:#eef2ff;}
+.mc-icon{font-size:26px;display:block;margin-bottom:5px;}
+.mc-name{font-size:11px;font-weight:700;color:var(--text);}
+.mc-desc{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
+/* スライダー */
+.slider-card{background:var(--panel);border-radius:var(--r);padding:15px;box-shadow:var(--sh);margin-bottom:14px;}
+.sl-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:7px;}
+.sl-val{font-weight:700;color:var(--primary);}
+input[type=range]{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;
+  border-radius:50%;background:var(--primary);box-shadow:0 2px 8px rgba(59,91,219,.4);}
+.hc-row{margin-top:11px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:pointer;}
+.hc-row input{width:17px;height:17px;cursor:pointer;accent-color:var(--primary);}
+
+/* レンズボタン */
+.lens-wrap{margin:14px 0;text-align:center;}
+.lens-btn{width:100%;max-width:360px;padding:17px;border-radius:16px;border:none;
+  font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.07em;
+  font-family:'Noto Sans JP',sans-serif;transition:all .25s;box-shadow:var(--sh);}
+.lens-btn.off{background:linear-gradient(135deg,#e0e7ff,#c7d2fe);color:var(--primary2);}
+.lens-btn.on{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;
+  box-shadow:0 6px 24px rgba(59,91,219,.45),0 0 0 4px rgba(59,91,219,.15);}
+.lens-btn .lb-sub{font-size:11px;font-weight:500;display:block;margin-top:3px;opacity:.8;}
+
+/* プレビュー */
+.preview-card{background:var(--panel);border-radius:var(--r);padding:15px;box-shadow:var(--sh);margin-bottom:14px;}
+.pv-box{border-radius:10px;padding:13px;background:#fafbff;border:1.5px solid var(--border);
+  position:relative;overflow:hidden;transition:all .25s;min-height:70px;}
+.pv-badge{position:absolute;top:7px;right:7px;color:#fff;
+  font-size:9px;font-weight:700;padding:3px 7px;border-radius:10px;}
+.pv-txt{line-height:1.7;transition:all .25s;}
+
+/* 視力チェック */
+.vt-card{background:var(--panel);border-radius:var(--r);padding:15px;box-shadow:var(--sh);margin-bottom:14px;}
+.vt-tabs{display:flex;gap:7px;margin-bottom:12px;}
+.vt-tab{flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--panel2);font-size:11px;font-weight:700;cursor:pointer;
+  text-align:center;font-family:'Noto Sans JP',sans-serif;color:var(--text);}
+.vt-tab.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+.vt-chars{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:12px 0;min-height:50px;align-items:center;}
+.vt-char{font-weight:700;}
+.ranshi-chart{margin:10px auto;width:160px;height:160px;}
+.ranshi-q{font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px;line-height:1.5;}
+.ranshi-opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;}
+.ro-btn{padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--panel2);font-size:11px;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;color:var(--text);}
+.ro-btn:active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.vt-btns{display:flex;gap:7px;}
+.vt-btn{flex:1;padding:10px;border-radius:9px;border:none;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.vt-btn.ok{background:var(--success);color:#fff;}
+.vt-btn.ng{background:var(--danger);color:#fff;}
+.vt-btn.reset{background:var(--panel2);color:var(--text);border:1.5px solid var(--border);}
+.vt-result{margin-top:10px;font-size:12px;color:var(--primary);font-weight:600;text-align:center;min-height:18px;}
+
+/* AI */
+.ai-card{background:var(--panel);border-radius:var(--r);padding:15px;box-shadow:var(--sh);margin-bottom:14px;}
+.ai-msgs{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.msg{padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.6;max-width:90%;}
+.msg-user{background:var(--primary);color:#fff;align-self:flex-end;}
+.msg-ai{background:var(--panel2);color:var(--text);align-self:flex-start;border:1px solid var(--border);}
+.ai-inp-row{display:flex;gap:6px;}
+.ai-inp{flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;
+  font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;background:#fafbff;}
+.ai-inp:focus{border-color:var(--primary);}
+.ai-send{padding:10px 13px;background:var(--primary);color:#fff;border:none;border-radius:9px;
+  font-size:13px;cursor:pointer;font-weight:700;}
+.ai-send:disabled{opacity:.5;}
+.ai-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.aq-btn{padding:6px 10px;border-radius:20px;border:1.5px solid var(--primary);
+  background:transparent;color:var(--primary);font-size:11px;font-weight:600;cursor:pointer;
+  font-family:'Noto Sans JP',sans-serif;}
+.aq-btn:active{background:var(--primary);color:#fff;}
+.typing-dot{display:flex;gap:4px;padding:2px 0;}
+.typing-dot span{width:7px;height:7px;border-radius:50%;background:var(--primary);
+  animation:td .9s infinite;display:inline-block;}
+.typing-dot span:nth-child(2){animation-delay:.2s;}
+.typing-dot span:nth-child(3){animation-delay:.4s;}
+@keyframes td{0%,100%{opacity:.3;transform:translateY(0);}50%{opacity:1;transform:translateY(-4px);}}
+
+/* 設定タブ */
+.setting-card{background:var(--panel);border-radius:var(--r);padding:15px;box-shadow:var(--sh);margin-bottom:12px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;
+  border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;padding-bottom:0;}
+.sr-label{font-size:13px;font-weight:600;}
+.sr-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.toggle-sw{position:relative;width:44px;height:24px;cursor:pointer;flex-shrink:0;}
+.toggle-sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-track{position:absolute;inset:0;border-radius:24px;background:var(--border);transition:.25s;}
+.toggle-sw input:checked+.sw-track{background:var(--primary);}
+.sw-thumb{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.25s;pointer-events:none;}
+.toggle-sw input:checked~.sw-thumb{left:22px;}
+.clear-btn{padding:7px 14px;border-radius:8px;border:none;background:var(--danger);
+  color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+
+/* 管理者パネル */
+#admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
+  align-items:flex-end;justify-content:center;}
+#admin-panel.show{display:flex;}
+.admin-sheet{background:#fff;border-radius:22px 22px 0 0;padding:20px 16px 40px;
+  width:100%;max-width:480px;max-height:88dvh;overflow-y:auto;}
+.admin-title{font-size:15px;font-weight:800;color:var(--primary2);margin-bottom:14px;
+  display:flex;align-items:center;justify-content:space-between;}
+.close-btn{background:var(--panel2);border:none;width:28px;height:28px;border-radius:50%;
+  font-size:15px;cursor:pointer;}
+.admin-sec{margin-bottom:16px;}
+.admin-sec h3{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:9px;
+  letter-spacing:.06em;text-transform:uppercase;}
+.user-row{background:var(--panel2);border-radius:10px;padding:10px 12px;margin-bottom:6px;
+  display:flex;align-items:center;gap:7px;}
+.ur-info{flex:1;min-width:0;}
+.ur-email{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ur-meta{font-size:10px;color:var(--muted);margin-top:1px;}
+.ur-pass{font-size:11px;font-family:monospace;color:var(--primary);background:#eef2ff;
+  padding:2px 7px;border-radius:5px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.ur-btns{display:flex;gap:4px;flex-shrink:0;}
+.ur-del{background:var(--danger);color:#fff;border:none;border-radius:6px;
+  padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700;}
+.ur-tog{background:var(--success);color:#fff;border:none;border-radius:6px;
+  padding:5px 8px;font-size:11px;cursor:pointer;font-weight:700;}
+.ur-tog.off{background:var(--muted);}
+.auf{background:var(--panel2);border-radius:12px;padding:13px;}
+.auf-row{display:flex;gap:6px;margin-bottom:8px;}
+.auf-row:last-child{margin-bottom:0;}
+.auf-inp{flex:1;padding:10px 11px;border:1.5px solid var(--border);border-radius:9px;
+  font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;background:#fff;}
+.auf-inp:focus{border-color:var(--primary);}
+.auf-btn{padding:10px 14px;background:var(--primary);color:#fff;border:none;border-radius:9px;
+  font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.auf-btn.w100{width:100%;}
+.admin-msg{font-size:12px;text-align:center;min-height:16px;margin-top:5px;}
+
+/* ボトムナビ */
+.bnav{position:fixed;bottom:0;left:0;right:0;background:#fff;
+  border-top:1px solid var(--border);display:flex;z-index:250;
+  box-shadow:0 -2px 10px rgba(59,91,219,.07);}
+.bn{flex:1;padding:9px 4px 11px;text-align:center;cursor:pointer;
+  border:none;background:transparent;font-family:'Noto Sans JP',sans-serif;}
+.bn-i{font-size:19px;display:block;}
+.bn-l{font-size:9px;font-weight:600;color:var(--muted);display:block;margin-top:1px;}
+.bn.on .bn-l{color:var(--primary);}
+.bn.on .bn-i{transform:scale(1.1);}
+
+/* タブパネル */
+.tp{display:none;}
+.tp.show{display:block;}
+
+/* トースト */
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);
+  background:rgba(30,58,138,.92);color:#fff;padding:9px 18px;border-radius:20px;
+  font-size:12px;font-weight:700;z-index:600;opacity:0;transition:opacity .25s;white-space:nowrap;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ログイン -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="li">👓</span>
+      <h1>LENS</h1>
+      <p>スマホが、あなたのメガネになる</p>
+    </div>
+    <div class="lf">
+      <label>メールアドレス</label>
+      <input type="email" id="l-email" placeholder="example@email.com" autocomplete="email">
+    </div>
+    <div class="lf">
+      <label>パスワード</label>
+      <input type="password" id="l-pass" placeholder="パスワードを入力" autocomplete="current-password">
+    </div>
+    <div class="login-err" id="l-err"></div>
+    <button class="login-btn" onclick="doLogin()">ログイン</button>
+    <p class="login-note">初回ログインは管理者から発行されたアカウントをご利用ください</p>
+  </div>
+</div>
+
+<!-- アプリ -->
+<div id="app">
+  <header>
+    <div class="hd-logo">👓 LENS</div>
+    <div class="hd-right">
+      <div class="hd-user" id="hd-user"></div>
+      <button class="hd-btn" id="admin-btn" onclick="openAdmin()" style="display:none">⚙️ 管理</button>
+      <button class="hd-btn" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div id="content-wrap">
+
+    <!-- タブ：レンズ -->
+    <div class="tp show" id="tab-lens">
+      <div class="main">
+        <div class="sec-ttl">症状を選択</div>
+        <div class="mode-grid">
+          <div class="mode-card sel" id="mc-rogan" onclick="selectMode('rogan')">
+            <span class="mc-icon">📖</span>
+            <div class="mc-name">老眼モード</div>
+            <div class="mc-desc">近くの文字が<br>読みにくい</div>
+          </div>
+          <div class="mode-card" id="mc-ranshi" onclick="selectMode('ranshi')">
+            <span class="mc-icon">🌀</span>
+            <div class="mc-name">乱視モード</div>
+            <div class="mc-desc">文字がにじむ<br>ダブって見える</div>
+          </div>
+          <div class="mode-card" id="mc-enshi" onclick="selectMode('enshi')">
+            <span class="mc-icon">🔍</span>
+            <div class="mc-name">遠視モード</div>
+            <div class="mc-desc">全体がぼやける<br>ピントが合わない</div>
+          </div>
+          <div class="mode-card" id="mc-emergency" onclick="selectMode('emergency')">
+            <span class="mc-icon">🆘</span>
+            <div class="mc-name">緊急モード</div>
+            <div class="mc-desc">今すぐ最大化<br>大きく見やすく</div>
+          </div>
+        </div>
+
+        <div class="slider-card">
+          <div class="sec-ttl" style="margin-top:0">補正強度</div>
+          <div class="sl-row">
+            <span>弱</span><span class="sl-val" id="sl-val">×1.5</span><span>強</span>
+          </div>
+          <input type="range" id="lens-sl" min="1.1" max="2.5" step="0.1" value="1.5" oninput="updateScale(this.value)">
+          <label class="hc-row">
+            <input type="checkbox" id="hc-chk" onchange="toggleHC()">
+            ハイコントラスト強化
+          </label>
+        </div>
+
+        <div class="lens-wrap">
+          <button class="lens-btn off" id="lens-btn" onclick="toggleLens()">
+            👓 レイヤーOFF
+            <span class="lb-sub">タップして補正をONにする</span>
+          </button>
+        </div>
+
+        <div class="preview-card">
+          <div class="sec-ttl" style="margin-top:0">プレビュー</div>
+          <div class="pv-box" id="pv-box">
+            <div class="pv-badge" id="pv-badge" style="background:var(--muted)">OFF</div>
+            <div class="pv-txt" id="pv-txt">
+              あいうえお　ABCDE 12345<br>
+              漢字テスト：視力補正レイヤー<br>
+              <span style="font-size:10px;color:#999;">このテキストで補正効果を確認</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ：視力チェック -->
+    <div class="tp" id="tab-vt">
+      <div class="main">
+        <div class="sec-ttl">📋 視力チェック</div>
+        <div class="vt-card">
+          <div class="vt-tabs">
+            <button class="vt-tab on" id="vtt-size" onclick="switchVT('size')">文字サイズ</button>
+            <button class="vt-tab" id="vtt-ranshi" onclick="switchVT('ranshi')">乱視チェック</button>
+          </div>
+          <div id="vt-size-area">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">下の文字がはっきり読めますか？</div>
+            <div class="vt-chars" id="vt-chars"></div>
+            <div class="vt-btns">
+              <button class="vt-btn ok" onclick="vtAnswer(true)">✅ 読める</button>
+              <button class="vt-btn ng" onclick="vtAnswer(false)">❌ 読めない</button>
+              <button class="vt-btn reset" onclick="initVT()">↩ やり直し</button>
+            </div>
+          </div>
+          <div id="vt-ranshi-area" style="display:none">
+            <div class="ranshi-q">放射状の線が<strong>すべて同じ濃さ</strong>に見えますか？<br>
+              <span style="font-size:10px">（見えにくい線の方向が乱視軸の手がかりになります）</span>
+            </div>
+            <div class="ranshi-chart"><canvas id="ranshi-canvas" width="160" height="160"></canvas></div>
+            <div class="ranshi-opts">
+              <button class="ro-btn" onclick="ranshiAnswer('all')">✅ 全部同じ</button>
+              <button class="ro-btn" onclick="ranshiAnswer('some')">⚠️ 濃淡がある</button>
+              <button class="ro-btn" onclick="ranshiAnswer('very')">🔴 かなり違う</button>
+            </div>
+          </div>
+          <div class="vt-result" id="vt-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ：AI -->
+    <div class="tp" id="tab-ai">
+      <div class="main">
+        <div class="sec-ttl">🤖 視力AIアドバイザー</div>
+        <div class="ai-card">
+          <div class="ai-quick">
+            <button class="aq-btn" onclick="quickAsk('老眼に最適なモードは？')">老眼は？</button>
+            <button class="aq-btn" onclick="quickAsk('乱視の補正方法を教えて')">乱視補正</button>
+            <button class="aq-btn" onclick="quickAsk('スマホで目が疲れない見方は？')">目の疲れ</button>
+            <button class="aq-btn" onclick="quickAsk('緊急モードの使い方を教えて')">緊急操作</button>
+          </div>
+          <div class="ai-msgs" id="ai-msgs">
+            <div class="msg msg-ai">視力のお悩みや、アプリの使い方を何でも聞いてください 👓</div>
+          </div>
+          <div class="ai-inp-row">
+            <input class="ai-inp" id="ai-inp" placeholder="例：老眼がひどくて..." onkeypress="if(event.key==='Enter')sendAI()">
+            <button class="ai-send" id="ai-send" onclick="sendAI()">送信</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ：設定 -->
+    <div class="tp" id="tab-cfg">
+      <div class="main">
+        <div class="sec-ttl">⚙️ 設定</div>
+        <div class="setting-card">
+          <div class="setting-row">
+            <div><div class="sr-label">設定の自動保存</div><div class="sr-sub">ログイン時に前回の設定を復元</div></div>
+            <label class="toggle-sw">
+              <input type="checkbox" id="cfg-autosave" checked onchange="saveLocalCfg()">
+              <div class="sw-track"></div><div class="sw-thumb"></div>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">起動時レイヤーON</div><div class="sr-sub">ログイン直後に補正を自動適用</div></div>
+            <label class="toggle-sw">
+              <input type="checkbox" id="cfg-autoOn" onchange="saveLocalCfg()">
+              <div class="sw-track"></div><div class="sw-thumb"></div>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">現在のモード</div><div class="sr-sub" id="cfg-mode-lbl">老眼モード</div></div>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">補正強度</div><div class="sr-sub" id="cfg-scale-lbl">×1.5</div></div>
+          </div>
+        </div>
+        <div class="setting-card">
+          <div class="setting-row">
+            <div><div class="sr-label">設定をリセット</div><div class="sr-sub">すべてデフォルトに戻す</div></div>
+            <button class="clear-btn" onclick="resetCfg()">リセット</button>
+          </div>
+        </div>
+        <div class="setting-card">
+          <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+            <div class="sr-label">バージョン情報</div>
+            <div class="sr-sub">LENS v3.0 / Firebase Auth + Gemini 2.5 Flash<br>kensetsu-nippo-842a2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-wrap -->
+
+  <nav class="bnav">
+    <button class="bn on" id="bn-lens" onclick="switchTab('lens')"><span class="bn-i">👓</span><span class="bn-l">レンズ</span></button>
+    <button class="bn" id="bn-vt" onclick="switchTab('vt')"><span class="bn-i">📋</span><span class="bn-l">視力検査</span></button>
+    <button class="bn" id="bn-ai" onclick="switchTab('ai')"><span class="bn-i">🤖</span><span class="bn-l">AI相談</span></button>
+    <button class="bn" id="bn-cfg" onclick="switchTab('cfg')"><span class="bn-i">⚙️</span><span class="bn-l">設定</span></button>
+  </nav>
+</div>
+
+<!-- 管理者パネル -->
+<div id="admin-panel">
+  <div class="admin-sheet">
+    <div class="admin-title">⚙️ 管理者パネル<button class="close-btn" onclick="closeAdmin()">✕</button></div>
+    <div class="admin-sec">
+      <h3>新規ユーザー追加</h3>
+      <div class="auf">
+        <div class="auf-row"><input class="auf-inp" id="new-name" placeholder="表示名（例: 山田太郎）"></div>
+        <div class="auf-row"><input class="auf-inp" id="new-email" type="email" placeholder="メールアドレス"></div>
+        <div class="auf-row">
+          <input class="auf-inp" id="new-pass" type="text" placeholder="仮パスワード（6文字以上）">
+          <button class="auf-btn" onclick="genPass()">生成</button>
+        </div>
+        <div class="auf-row"><button class="auf-btn w100" onclick="addUser()">➕ ユーザーを追加</button></div>
+        <div class="admin-msg" id="admin-msg"></div>
+      </div>
+    </div>
+    <div class="admin-sec">
+      <h3>ユーザー一覧（<span id="user-count">0</span>名）</h3>
+      <div id="user-list"><div style="font-size:12px;color:var(--muted);text-align:center;padding:14px;">読み込み中...</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs,
+  deleteDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCVk2miG5TK1ffTofXLh0hHgeSbOvmIgZ8",
+  authDomain: "kensetsu-nippo-842a2.firebaseapp.com",
+  projectId: "kensetsu-nippo-842a2",
+  storageBucket: "kensetsu-nippo-842a2.firebasestorage.app",
+  messagingSenderId: "702880974315",
+  appId: "1:702880974315:web:985321dc9180046629c5ae"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.__fb = {
+  auth, db,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged,
+  collection, doc, setDoc, getDoc, getDocs, deleteDoc, serverTimestamp
+};
+window.dispatchEvent(new Event('fbReady'));
+</script>
+
+<script>
+const FUNC_URL = "https://asia-northeast1-kensetsu-nippo-842a2.cloudfunctions.net/askClaude";
+const AH = {'Content-Type':'application/json','x-access-key':'HH-2026-kensetsu-daiku'};
+const CFG_KEY = 'lens_cfg_';
+
+let currentUser = null, isAdmin = false;
+let lensOn = false, currentMode = 'rogan', aiBusy = false;
+
+function fb(){ return window.__fb; }
+
+// ===== Auth =====
+window.addEventListener('fbReady', ()=>{
+  fb().onAuthStateChanged(fb().auth, async user => {
+    if(user){
+      currentUser = user;
+      try{
+        const snap = await fb().getDoc(fb().doc(fb().db,'users',user.uid));
+        isAdmin = snap.exists() && snap.data().isAdmin === true;
+      }catch(e){ isAdmin = false; }
+      document.getElementById('l-err').textContent = '';
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('show');
+      document.getElementById('hd-user').textContent = (user.email||'').split('@')[0];
+      document.getElementById('admin-btn').style.display = isAdmin ? '' : 'none';
+      loadLocalCfg();
+      initVT();
+      drawRanshi();
+      showToast('ようこそ ' + (user.email||'').split('@')[0] + 'さん 👓');
+    } else {
+      currentUser = null; isAdmin = false;
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').classList.remove('show');
+    }
+  });
+});
+
+async function doLogin(){
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  document.getElementById('l-err').textContent = '';
+  if(!email||!pass){ document.getElementById('l-err').textContent='メールアドレスとパスワードを入力してください'; return; }
+  try{
+    await fb().signInWithEmailAndPassword(fb().auth, email, pass);
+  }catch(e){
+    document.getElementById('l-err').textContent = 'メールアドレスまたはパスワードが違います';
+  }
+}
+document.getElementById('l-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+async function doLogout(){
+  if(lensOn) toggleLens();
+  await fb().signOut(fb().auth);
+}
+
+// ===== タブ =====
+const TABS = ['lens','vt','ai','cfg'];
+function switchTab(tab){
+  TABS.forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('show', t===tab);
+    document.getElementById('bn-'+t).classList.toggle('on', t===tab);
+  });
+}
+
+// ===== モード選択 =====
+function selectMode(mode){
+  currentMode = mode;
+  ['rogan','ranshi','enshi','emergency'].forEach(m=>{
+    document.getElementById('mc-'+m).classList.toggle('sel', m===mode);
+  });
+  if(lensOn) applyLens();
+  updatePreview();
+  saveLocalCfg();
+}
+
+// ===== スライダー =====
+function updateScale(val){
+  const v = parseFloat(val);
+  document.documentElement.style.setProperty('--lz', v);
+  document.getElementById('sl-val').textContent = '×'+v.toFixed(1);
+  const pct = ((v-1.1)/(2.5-1.1))*100;
+  document.getElementById('lens-sl').style.background =
+    `linear-gradient(to right,var(--primary) 0%,var(--primary) ${pct}%,var(--border) ${pct}%,var(--border) 100%)`;
+  if(lensOn) applyLens();
+  updatePreview();
+  saveLocalCfg();
+}
+
+// ===== ハイコントラスト =====
+function toggleHC(){
+  document.body.classList.toggle('lens-hc', document.getElementById('hc-chk').checked);
+  saveLocalCfg();
+}
+
+// ===== レンズON/OFF =====
+function toggleLens(){
+  lensOn = !lensOn;
+  const btn = document.getElementById('lens-btn');
+  if(lensOn){
+    applyLens();
+    btn.className='lens-btn on';
+    btn.innerHTML='👓 レイヤーON<span class="lb-sub">補正適用中 — タップでOFF</span>';
+    showToast('補正レイヤーをONにしました');
+  } else {
+    removeLens();
+    btn.className='lens-btn off';
+    btn.innerHTML='👓 レイヤーOFF<span class="lb-sub">タップして補正をONにする</span>';
+    showToast('補正レイヤーをOFFにしました');
+  }
+  updatePreview();
+}
+
+function applyLens(){
+  document.body.classList.remove('lm-rogan','lm-ranshi','lm-enshi','lm-emergency');
+  document.body.classList.add('lm-'+currentMode);
+}
+function removeLens(){
+  document.body.classList.remove('lm-rogan','lm-ranshi','lm-enshi','lm-emergency');
+}
+
+// ===== プレビュー =====
+function updatePreview(){
+  const box=document.getElementById('pv-box'), txt=document.getElementById('pv-txt');
+  const badge=document.getElementById('pv-badge');
+  const scale=parseFloat(document.getElementById('lens-sl').value);
+  const ml={rogan:'老眼',ranshi:'乱視',enshi:'遠視',emergency:'緊急'};
+  badge.textContent=lensOn?ml[currentMode]+'ON':'OFF';
+  badge.style.background=lensOn?'var(--success)':'var(--muted)';
+  if(lensOn){
+    const fs=currentMode==='emergency'?Math.round(14*Math.min(scale,2.2)):Math.round(14*scale);
+    txt.style.fontSize=fs+'px'; txt.style.fontWeight=currentMode==='emergency'?'900':'600';
+    txt.style.lineHeight='1.85';
+    if(currentMode==='emergency'){box.style.background='#111';txt.style.color='#ffe600';}
+    else if(currentMode==='ranshi'){box.style.background='#fafbff';txt.style.color='var(--text)';box.style.filter='contrast(1.5)';}
+    else{box.style.background='#fafbff';txt.style.color='var(--text)';box.style.filter='';}
+  } else {
+    txt.style.fontSize='14px';txt.style.fontWeight='400';txt.style.lineHeight='1.7';
+    txt.style.color='var(--text)';box.style.background='#fafbff';box.style.filter='';
+  }
+  // 設定タブ表示更新
+  const ml2={rogan:'老眼モード',ranshi:'乱視モード',enshi:'遠視モード',emergency:'緊急モード'};
+  document.getElementById('cfg-mode-lbl').textContent=ml2[currentMode];
+  document.getElementById('cfg-scale-lbl').textContent='×'+scale.toFixed(1);
+}
+
+// ===== ユーザー設定（localStorage、メール紐付け）=====
+function cfgKey(){ return CFG_KEY+(currentUser?.email||'guest'); }
+function saveLocalCfg(){
+  if(!document.getElementById('cfg-autosave').checked) return;
+  const cfg={
+    mode:currentMode,
+    scale:document.getElementById('lens-sl').value,
+    hc:document.getElementById('hc-chk').checked,
+    autoOn:document.getElementById('cfg-autoOn').checked,
+    autoSave:true
+  };
+  try{ localStorage.setItem(cfgKey(), JSON.stringify(cfg)); }catch(e){}
+}
+function loadLocalCfg(){
+  try{
+    const cfg=JSON.parse(localStorage.getItem(cfgKey())||'{}');
+    if(cfg.mode) selectMode(cfg.mode);
+    if(cfg.scale){ document.getElementById('lens-sl').value=cfg.scale; updateScale(cfg.scale); }
+    if(cfg.hc){ document.getElementById('hc-chk').checked=true; toggleHC(); }
+    if(cfg.autoSave!==undefined) document.getElementById('cfg-autosave').checked=cfg.autoSave;
+    if(cfg.autoOn){ document.getElementById('cfg-autoOn').checked=true; if(!lensOn) toggleLens(); }
+  }catch(e){}
+}
+function resetCfg(){
+  if(!confirm('設定をリセットしますか？'))return;
+  try{ localStorage.removeItem(cfgKey()); }catch(e){}
+  selectMode('rogan');
+  document.getElementById('lens-sl').value=1.5; updateScale(1.5);
+  document.getElementById('hc-chk').checked=false; document.body.classList.remove('lens-hc');
+  document.getElementById('cfg-autoOn').checked=false;
+  document.getElementById('cfg-autosave').checked=true;
+  if(lensOn) toggleLens();
+  showToast('設定をリセットしました');
+}
+
+// ===== 視力チェック =====
+const VT=[
+  {chars:'あいう ABC',size:'28px'},{chars:'えおか DEF',size:'22px'},
+  {chars:'きくけ GHI',size:'17px'},{chars:'こさし JKL',size:'13px'},
+  {chars:'すせそ MNO',size:'11px'},{chars:'たちつ PQR',size:'9px'},
+];
+let vtLv=0, vtScore=0;
+function initVT(){ vtLv=0;vtScore=0;document.getElementById('vt-result').textContent='';renderVT(); }
+function renderVT(){
+  if(vtLv>=VT.length){showVTResult();return;}
+  const box=document.getElementById('vt-chars');
+  box.innerHTML='';
+  VT[vtLv].chars.split('').forEach(c=>{
+    if(c===' ')return;
+    const s=document.createElement('span');
+    s.className='vt-char';s.textContent=c;s.style.fontSize=VT[vtLv].size;
+    box.appendChild(s);
+  });
+}
+function vtAnswer(ok){
+  if(ok){vtScore++;vtLv++;renderVT();}
+  else showVTResult();
+}
+function showVTResult(){
+  const pct=vtScore/VT.length;
+  let msg,mode,scale;
+  if(pct>=0.83){msg='✅ 良好。老眼モード（弱）がおすすめ';mode='rogan';scale=1.3;}
+  else if(pct>=0.5){msg='⚠️ 老眼モード（中）をおすすめします';mode='rogan';scale=1.8;}
+  else{msg='🔴 遠視/緊急モードをお試しください';mode='enshi';scale=2.1;}
+  document.getElementById('vt-result').textContent=msg;
+  selectMode(mode);
+  document.getElementById('lens-sl').value=scale; updateScale(scale);
+  showToast('チェック完了！推奨設定を適用しました');
+}
+function switchVT(type){
+  ['size','ranshi'].forEach(t=>{
+    document.getElementById('vt-'+t+'-area').style.display=t===type?'':'none';
+    document.getElementById('vtt-'+t).classList.toggle('on',t===type);
+  });
+  document.getElementById('vt-result').textContent='';
+  if(type==='ranshi') drawRanshi();
+}
+function drawRanshi(){
+  const c=document.getElementById('ranshi-canvas');
+  if(!c)return;
+  const ctx=c.getContext('2d'),w=160,h=160,cx=80,cy=80,r=70;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+  for(let i=0;i<12;i++){
+    const a=(i*30)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx+8*Math.cos(a),cy+8*Math.sin(a));
+    ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));
+    ctx.strokeStyle='#333';ctx.lineWidth=2;ctx.stroke();
+  }
+  [20,40,60].forEach(rr=>{
+    ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);
+    ctx.strokeStyle='rgba(100,100,200,.15)';ctx.lineWidth=1;ctx.stroke();
+  });
+  ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='#555';ctx.fill();
+}
+function ranshiAnswer(ans){
+  const r={all:['✅ 乱視の可能性は低い。老眼モードをお試しください','rogan',1.5],
+    some:['⚠️ 軽度の乱視の可能性。乱視モードをお試しください','ranshi',1.5],
+    very:['🔴 乱視の可能性大。乱視モード（強め）をお試しください','ranshi',1.8]}[ans];
+  document.getElementById('vt-result').textContent=r[0];
+  selectMode(r[1]);
+  document.getElementById('lens-sl').value=r[2]; updateScale(r[2]);
+  showToast('乱視チェック完了！推奨設定を適用しました');
+}
+
+// ===== AI =====
+function quickAsk(text){ document.getElementById('ai-inp').value=text; switchTab('ai'); sendAI(); }
+async function sendAI(){
+  const inp=document.getElementById('ai-inp'), text=inp.value.trim();
+  if(!text||aiBusy)return;
+  inp.value=''; aiBusy=true; document.getElementById('ai-send').disabled=true;
+  addMsg(text,'user');
+  const typing=addTyping();
+  const prompt=`あなたは視力補正・メガネ・スマホ画面の見やすさの専門家AIアシスタントです。
+老眼・近視・遠視・乱視に関する相談に、やさしく具体的に日本語で回答してください。
+このアプリ「LENS」は老眼/乱視/遠視/緊急の4モードでスマホ画面を補正するアプリです。
+ユーザーの質問: "${text}"
+200文字以内で簡潔に答えてください。`;
+  try{
+    const r=await callGemini(prompt);
+    typing.remove(); addMsg(r||'回答を取得できませんでした','ai');
+  }catch(e){ typing.remove(); addMsg('通信エラーが発生しました','ai'); }
+  aiBusy=false; document.getElementById('ai-send').disabled=false;
+}
+async function callGemini(prompt){
+  const res=await fetch(FUNC_URL,{method:'POST',headers:AH,body:JSON.stringify({prompt,model:'gemini-2.5-flash'})});
+  const d=await res.json();
+  return d?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+}
+function addMsg(text,type){
+  const box=document.getElementById('ai-msgs');
+  const d=document.createElement('div');
+  d.className='msg msg-'+type; d.textContent=text;
+  box.appendChild(d); box.scrollTop=box.scrollHeight; return d;
+}
+function addTyping(){
+  const box=document.getElementById('ai-msgs');
+  const d=document.createElement('div'); d.className='msg msg-ai';
+  d.innerHTML='<div class="typing-dot"><span></span><span></span><span></span></div>';
+  box.appendChild(d); box.scrollTop=box.scrollHeight; return d;
+}
+
+// ===== 管理者パネル =====
+function openAdmin(){ if(!isAdmin)return; loadUsers(); document.getElementById('admin-panel').classList.add('show'); }
+function closeAdmin(){ document.getElementById('admin-panel').classList.remove('show'); }
+
+async function loadUsers(){
+  const el=document.getElementById('user-list');
+  el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:14px;">読み込み中...</div>';
+  try{
+    const snap=await fb().getDocs(fb().collection(fb().db,'users'));
+    const docs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(u=>!u.isAdmin);
+    document.getElementById('user-count').textContent=docs.length;
+    if(!docs.length){
+      el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:14px;">ユーザーがいません</div>';
+      return;
+    }
+    el.innerHTML=docs.map(u=>`
+      <div class="user-row">
+        <div class="ur-info">
+          <div class="ur-email">${u.name||''} &lt;${u.email||''}&gt;</div>
+          <div class="ur-meta">作成: ${u.createdAt?new Date(u.createdAt.seconds*1000).toLocaleDateString('ja-JP'):'不明'}</div>
+        </div>
+        <div class="ur-btns">
+          <button class="ur-del" onclick="delUser('${u.id}')">削除</button>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML='<div style="font-size:12px;color:var(--danger);text-align:center;padding:14px;">取得エラー: '+e.message+'</div>';
+  }
+}
+
+async function addUser(){
+  const name=document.getElementById('new-name').value.trim();
+  const email=document.getElementById('new-email').value.trim();
+  const pass=document.getElementById('new-pass').value;
+  const msgEl=document.getElementById('admin-msg');
+  msgEl.textContent=''; msgEl.style.color='var(--success)';
+  if(!name||!email||!pass){msgEl.style.color='var(--danger)';msgEl.textContent='全項目を入力してください';return;}
+  if(pass.length<6){msgEl.style.color='var(--danger)';msgEl.textContent='パスワードは6文字以上';return;}
+  try{
+    const cred=await fb().createUserWithEmailAndPassword(fb().auth,email,pass);
+    await fb().setDoc(fb().doc(fb().db,'users',cred.user.uid),{
+      name,email,isAdmin:false,createdAt:fb().serverTimestamp()
+    });
+    // 管理者として再ログイン
+    const adminEmail=currentUser.email;
+    const adminPass=window.prompt('管理者パスワードを再入力してください');
+    if(adminPass) await fb().signInWithEmailAndPassword(fb().auth,adminEmail,adminPass);
+    ['new-name','new-email','new-pass'].forEach(id=>document.getElementById(id).value='');
+    msgEl.textContent='✅ '+name+'（'+email+'）を追加しました';
+    loadUsers();
+  }catch(e){msgEl.style.color='var(--danger)';msgEl.textContent=e.message;}
+}
+
+async function delUser(uid){
+  if(!confirm('このユーザーを削除しますか？'))return;
+  try{await fb().deleteDoc(fb().doc(fb().db,'users',uid));loadUsers();}
+  catch(e){alert('削除エラー: '+e.message);}
+}
+
+function genPass(){
+  const chars='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  let p=''; for(let i=0;i<10;i++) p+=chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('new-pass').value=p;
+}
+
+// ===== トースト =====
+let _tt;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2300);
+}
+
+// ===== 起動 =====
+updateScale(1.5);
+</script>
+</body>
+</html>
